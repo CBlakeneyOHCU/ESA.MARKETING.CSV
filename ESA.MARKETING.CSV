@@ -1,0 +1,227 @@
+[ -----------------------------------------------------------------
+  CUNA.MUTUAL.MEMBER.REQUEST.ALL - Nicole Shubert
+  Produces mailing list for Cuna Mutual.
+  FOR Jon 
+
+  UPDATED: Josh McIntyre - to include all members
+
+  Use this for Allegro TruStage file as of 10/31/2019
+
+  UPDATED: Houston Howard 5/10/2023 updated to include email and phone number. For ESA email/number marketing
+  ----------------------------------------------------------------- ]
+
+TARGET=LOAN
+
+DEFINE
+ #INCLUDE "RD.OUTPUT.DEF"
+ #INCLUDE "MAILADDRESS.DEF"
+ OUTPUTCHANNEL1   = NUMBER
+ ERRORTEXT        = CHARACTER
+ ERRORTEXTIGNORE  = CHARACTER
+
+ LINE             = CHARACTER
+ QUOTATIONMARK    = CHARACTER
+ SEPARATOR        = CHARACTER
+ TEMPTEXT         = CHARACTER
+ X                = NUMBER
+
+ HEADERFLAG       = CHARACTER(1)
+ FAKEHEADER       = CHARACTER ARRAY(3)
+ FAKELINECOUNT    = NUMBER
+ FAKEPAGECOUNT    = NUMBER
+
+ PREVACCOUNTNUMBER    = CHARACTER
+ TOTALORIGINALBALANCE = MONEY
+ TOTALBALANCE         = MONEY
+ ACCOUNTCOUNTER       = NUMBER
+ LOANCOUNTER          = NUMBER
+ LASTUSEDDATE         = DATE
+
+
+ COUNTER = NUMBER
+ FOUND   = NUMBER
+ SHID    = CHARACTER
+ LUNUM1   = CHARACTER
+ LUNUM2   = CHARACTER
+ FOUNDSAV = NUMBER
+ MKTOPTOUT = NUMBER
+ 
+END
+
+SETUP
+HEADERFLAG="Y"
+ QUOTATIONMARK=CTRLCHR(34)
+ SEPARATOR=QUOTATIONMARK+","+QUOTATIONMARK
+
+ OUTPUTOPEN(OUTPUTDEVREPORT,0,"CUNA MUTUAL MEMBER REQUEST","ALLEGRO",OUTPUTCHANNEL1,ERRORTEXT)
+ FAKEPAGECOUNT=1
+ FAKELINECOUNT=0
+ FAKEHEADER(0)   = "OLD HICKORY CU                           CUNA MUTUAL MEMBER REQUEST              "+FORMAT("99/99/99",SYSTEMDATE)+" at "+FORMAT("99/99/99",SYSTEMDATE)+" 10:00   Seq 9999   Page "
+
+ 
+ FAKEHEADER(1)   = "Account No  Last Name   First Name     Email      Acct Br  Zipcode"
+ FAKEHEADER(2)   = "------------------------------------------------------------------"
+ FAKELINECOUNT=4
+
+ OUTPUTSWITCH(OUTPUTCHANNEL1,ERRORTEXT)
+ PRINT FAKEHEADER(0)+FORMAT("####9",FAKEPAGECOUNT)
+ NEWLINE
+ NEWLINE
+ PRINT FAKEHEADER(1)
+ NEWLINE
+ PRINT FAKEHEADER(2)
+ NEWLINE
+ OUTPUTSWITCH(OUTPUTCHANNELDEFAULT,ERRORTEXT)
+END
+
+
+SELECT
+ LOAN:CLOSEDATE='--/--/--' AND
+ LOAN:CHARGEOFFDATE='--/--/--' AND
+ (LOAN TRACKING:TYPE=30 OR LOAN TRACKING:TYPE=35)
+END
+
+ 
+PRINT TITLE="ESA MEMBER REQUEST CSV" REPORTCATEGORY="ALLEGRO" DATAFILE ASCII 
+ RECORDSIZE=0300 BLOCKSIZE=0300
+
+  OutputSwitch(OUTPUTCHANNEL1, ERRORTEXT)
+
+
+
+  If FAKELINECOUNT = 66 Then
+  Do
+    NewPage
+    FAKEPAGECOUNT = FAKEPAGECOUNT + 1
+    Print FAKEHEADER(0) + Format("####9", FAKEPAGECOUNT)
+    NewLine
+    NewLine
+    Print FAKEHEADER(1)
+    NewLine
+    Print FAKEHEADER(2)
+    NewLine
+    FAKELINECOUNT = 4
+  End
+
+  Col = 001 Account:Number +LOAN:ID+ ","
+  Col = 013 Name:FIRST 
+  Col = 023 Name:LAST + ","
+  Col = 035 Name:Email + ","
+  Col = 050 NAME:MOBILEPHONE
+
+  NewLine
+  FAKELINECOUNT = FAKELINECOUNT + 1
+
+  OutputSwitch(OUTPUTCHANNELDEFAULT, ERRORTEXT)
+  Call GETMAILADDRESS2
+  [ If HEADERFLAG="Y" Then
+ Do
+   DataSize=27 "CU Name"
+   DataSize= "Savings Acct"
+   DataSize= "Name"
+   DataSize= "Street"
+   DataSize= "Extra Address"
+   DataSize= "City"
+   DataSize= "State"
+   DataSize= "Zip"
+   DataSize= "SSN"
+   DataSize= "Birth Date"
+   DataSize= "Draft Acct"
+   DataSize= "Enroll Date"
+   DataSize= "Phone"
+
+   DataSize=1 CtrlChr(10)
+   HEADERFLAG="N"
+ End
+]
+ [ LINE = "Old Hickory Credit Union"
+  DataSize = 27 LINE]
+  [
+    LINE=ACCOUNT:NUMBER+SEPARATOR
+   DATASIZE=LENGTH(LINE) LINE
+]
+  FOUNDSAV = 0
+[  For Each Share With(Share:Type = 00 And Share:CloseDate = '--/--/--')
+  Do
+    FOUNDSAV = 1
+  End]
+
+
+  LINE = ACCOUNT:NUMBER+LOAN:ID
+  DataSize = 15 LINE
+
+  LINE = Name:FIRST
+  DataSize = 15 LINE
+
+  LINE = Name:LAST
+  DataSize = 15 LINE
+
+  LINE = NAME:EMAIL
+  DataSize = 30 LINE
+
+  LINE = NAME:MOBILEPHONE
+  DataSize = 30 LINE
+
+
+
+  FOUND = 0
+[  For Each Share With(Share:CloseDate = '--/--/--' And Share:ShareCode = 1 And Share:Type <> 15)
+  Do
+    SHID = Share:ID
+    FOUND = 1
+  End Until FOUND = 1]
+
+
+  DataSize = 1 CtrlChr(10)
+  COUNTER = COUNTER + 1
+
+END
+
+
+
+ 
+TOTAL
+ OUTPUTSWITCH(OUTPUTCHANNEL1,ERRORTEXT)
+
+ PRINT FAKEHEADER(2)
+ NEWLINE
+ COL=001 "Total accounts: "
+ COL=040 COUNTER
+ NEWLINE
+ COL=001 "Total mktg opt out: "
+ COL=040 MKTOPTOUT
+ NEWLINE
+
+ OUTPUTSWITCH(OUTPUTCHANNELDEFAULT,ERRORTEXT)
+ OUTPUTCLOSE(OUTPUTCHANNEL1,ERRORTEXT)
+END
+
+PROCEDURE REMOVEQUOTATION
+ FOR X=1 TO LENGTH(TEMPTEXT)
+ DO
+   IF SEGMENT(TEMPTEXT,X,X)=QUOTATIONMARK THEN LINE=LINE+"'"
+   ELSE LINE=LINE+SEGMENT(TEMPTEXT,X,X)
+ END
+END
+
+PROCEDURE ERRORHANDLER
+ OUTPUTSWITCH(OUTPUTCHANNELDEFAULT,ERRORTEXTIGNORE)
+ PRINT "Error: "+ERRORTEXT
+ NEWLINE
+ TERMINATE
+END
+
+
+
+#INCLUDE "MAILADDRESS.PRO"
+
+
+
+
+
+
+
+
+
+
+
